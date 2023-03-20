@@ -16,3 +16,20 @@ Java API
 * If you want the same partition to be assigned to the same Consumer. You can specify ```group.instance.id``` to make that Consumer become **static member**. Upon the static member leaving the group, the partition will not be assigned to another consumer until ```session.timeout.ms``` has passed (after that, the partition will go to another consumers)
 * The consumer will commit the offset when ```.poll()``` is called and after ```auto.commit.interval.ms``` has elapsed (default 5000) and ```enable.auto.commit=true```
 * If you need to do manual offset commit (```enable.auto.commit=false```), then need to use ```commitSync()``` or ```commitAsync()```
+
+Producer
+* Use property ```acks```
+    * ```0```: producer not wait for acknowledgement. Good for metrics collection
+    * ```1```: wait for leader acknowledgement
+    * ```all``` (or -1): leader + replicas acknowledgement (no data loss). This also work with ```min.insync.replicas``` to check are enough replicas defined by this acknowledged
+        * if ```min.insync.replicas``` is 1 (default setting), this mean only the broker leader need to successfully ack
+        * commonly, it's set to 2, and use replication factor = 3. This means the leader and at least 1 replica need to acknowledge. Note that if 2 replicas go down, the leader will reply with exception: NOT_ENOUGH_REPLICAS. This means it can tolerate at most 1 broker down. **Setting this number to 3 doesn't make sense** as that mean you don't tolerate any brokers down at all!
+* Use property ```retries``` to retry x number of times. Use with ```retry.backoff.ms```
+    * even you set ```retries``` to a very high number, it'll still retry upto ```delivery.timeout.ms``` and then stop
+    * if you not use **idempotent** producer (incase of old kafka), in case of retry, there's a chance that message is send out of order
+        * there's property ```max.in.flight.requests.per.connection```. Older kafka version should set this to 1 to ensure ordering (in case of retry). This can impact throughput. However, in kafka version >= 1.0.0, you can use idempotent producer instead
+* Idempotent producer: this's to prevent duplicate message when producer fail to receive ack from kafka broker and retry. This is default since kafka 3.0. To enable manually, define property ```enable.idempotence``` to ```true```. Note that it'll come with the following default setting:
+    * ```retries``` = ```Integer.MAX_VALUE```
+    * ```max.in.flight.requests.per.connection``` = 1 (for older kafka) or 5 (for kafka >= 1.0)
+    * ```acks``` = all
+* Difference kafka versions have a different default setup so make sure to check that!!    
