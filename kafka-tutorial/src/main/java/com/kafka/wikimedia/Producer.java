@@ -31,7 +31,17 @@ public class Producer {
 
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        
+
+        // set safe producer (for older kafka version)
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE + "");
+
+        // high throughput setting
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, "32768"); // 32KB
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20"); // wait for 20 MS
+
         KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
 
         String topic = "wikimedia.recentchange";
@@ -49,7 +59,7 @@ public class Producer {
 
         // need to block a code here
         try {
-            TimeUnit.MINUTES.sleep(10);
+            TimeUnit.MINUTES.sleep(1);
         } catch (InterruptedException e) {
             
         }

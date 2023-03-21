@@ -33,3 +33,13 @@ Producer
     * ```max.in.flight.requests.per.connection``` = 1 (for older kafka) or 5 (for kafka >= 1.0)
     * ```acks``` = all
 * Difference kafka versions have a different default setup so make sure to check that!!    
+* Use compression to increase the throughput
+    * can be enabled on producer level or on broker level 
+    * setting high number of batch ```max.in.flight.requests.per.connection``` will benefit from this as multiple batches will be compressed. You can also config the producer to wait upto ```linger.ms``` or have upto ```batch.size``` (in bytes) to queueing up the compressed message before sending
+    * ```batch.size``` is allocated per partition
+    * ```compression.type``` to compress data. can be ```none```(default)/ ```snappy``` (good for text/json)/ ```lz4``` / etc
+    * can be configured on the broker-level for all topics or per topic-level useing ```compression.type``` (default = ```producer``` meaning it's upto the producer and the broker will store the message as-is). If set to ```none``` the broker will decompress the message before stroing. Interesting behavior is if you define this value to be different than what producer send (i.e. set to ```lz4``` while producer set ```snappy```), the broker will decompress and re-compress the message again before storing it, resulted in wasted cpu cycle
+    * consumer can consume the message as-is. No need to tell what decompression starategy it need to use. **The consumer is the one that decompress the message, not broker**, but this happened with no need of explicit input 
+* When producer produces a message with a key, it uses ```murmur2``` algorithm to find the designated partition. The same key will go to the same partition **UNLESS** you change the number of partitions. It's better to create a new topic
+* ```partitioner.class``` is used to defined a class that derive a partition based on the given key (default is null). In kafka >= 2.4,If the key is null, it'll use ```StickyPartitioner``` to find the partition for the group of messages (in older version, it use round-robin partitioner). That means multiple messages (with no key, send at around the same time) sent consecutively will be put in the same partition. This's done to increase throughput
+* In the event that broker can't keep up with the speed that producer send, producer will queue up the message in a memory defined by ```buffer.memory``` (in bytes). If this buffer is fulled, when you do ```send()```, the producer will be blocked (instead of being async operation). It'll wait upto ```max.block.ms``` ms before throwing an exception. This ususally means the brokers are down or overloaded
